@@ -15,8 +15,6 @@ fn parse_url(url: &str) -> (&str, &str, &str) {
     // Unique operator
     let cs1 = &cs[..];
 
-    //url.starts_with(&cs[..]);
-
     assert!(url.starts_with("http://") || url.starts_with("https://"));
     let (scheme, rest) = url.split_once("://").unwrap();
     let (host, path) = rest.split_once("/").unwrap();
@@ -32,7 +30,11 @@ fn test_f2() -> std::io::Result<usize> {
     sent += stream.write(b"Host: example.org\r\n\r\n")?;
     Ok(sent)
 }
-
+struct RequestHeader<'a> {
+    host: Option<&'a str>,
+    connection: &'a str,
+    user_agent: &'a str,
+}
 fn request(url: &str) -> std::io::Result<(String, HashMap<String, String>)> {
     /*
      *
@@ -63,13 +65,37 @@ fn request(url: &str) -> std::io::Result<(String, HashMap<String, String>)> {
 
     let path = "/".to_owned() + &path;
     println!("Scheme: {}, Host: {}, Path: {}", scheme, host, path);
+    let req_headers: HashMap<&str, &str> = vec![
+        ("Host", host),
+        ("Connection", "close"),
+        ("User-Agent", "Quantum"),
+    ]
+    .into_iter()
+    .collect();
+    let req_headers1 = vec![
+        ("Host", host),
+        ("Connection", "close"),
+        ("User-Agent", "Quantum"),
+    ];
+
+    let mut second = format!("GET {} HTTP/1.1\r\n", path);
+    second.extend(
+        req_headers1
+            .iter()
+            .map(|(k, v)| k.to_string() + ": " + v + "\r\n"),
+    );
+    second.push_str("\r\n");
 
     /* INIT AND SEND REQUEST */
     let first = format!(
-        "GET {} HTTP/1.0\r\n\
-        Host: {}\r\n\r\n",
+        "GET {} HTTP/1.1\r\n\
+        Host: {}\r\n
+        Connection: close\r\n
+        User-Agent: Quantum\r\n\r\n",
         path, host
     );
+    /* Connection: close\r\n
+    User-Agent: Mozilla/5.0\r\n */
     let mut response_string = String::new();
     let mut stream = TcpStream::connect((host, port)).unwrap();
 
@@ -77,10 +103,10 @@ fn request(url: &str) -> std::io::Result<(String, HashMap<String, String>)> {
         let connector = SslConnector::builder(SslMethod::tls()).unwrap().build();
         let mut stream = connector.connect(host, &stream).unwrap();
 
-        let sent = stream.write(first.as_bytes())?;
+        let sent = stream.write(second.as_bytes())?;
         let _ = stream.read_to_string(&mut response_string);
     } else {
-        let sent = stream.write(first.as_bytes())?;
+        let sent = stream.write(second.as_bytes())?;
         let _ = stream.read_to_string(&mut response_string);
     }
 
