@@ -155,12 +155,22 @@ fn request(url: &str) -> std::io::Result<(String, HashMap<String, String>)> {
 
 fn show(body: &str) {
     let mut in_angle = true;
+    let mut in_body = false;
+    let mut tag = String::new();
     for c in body.chars() {
         if c == '<' {
             in_angle = true;
         } else if c == '>' {
+            if tag == "body" {
+                in_body = !in_body;
+            }
             in_angle = false;
-        } else if !in_angle {
+            tag.clear();
+        } else if in_angle {
+            if c != '/' {
+                tag.push(c);
+            }
+        } else if !in_angle && in_body {
             print!("{}", c);
         }
     }
