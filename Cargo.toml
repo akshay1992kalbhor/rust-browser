@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 openssl = "0.10.33"
+druid = "0.7.0"
